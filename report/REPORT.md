@@ -1,8 +1,9 @@
 # Báo Cáo Lab 7: Embedding & Vector Store
 
-**Họ tên:** [Tên sinh viên]
-**Nhóm:** [Tên nhóm]
-**Ngày:** [Ngày nộp]
+**Họ tên:** Nguyễn Hoàng Dương
+**MSSV** 2A20260849
+**Nhóm:** C5
+**Ngày:** 05/06/2024
 
 ---
 
@@ -11,29 +12,29 @@
 ### Cosine Similarity (Ex 1.1)
 
 **High cosine similarity nghĩa là gì?**
-> *Viết 1-2 câu:*
+> Hai đoạn văn bản có độ tương đồng cao về ngữ nghĩa và hướng của vector biểu diễn, dù độ dài văn bản có thể khác nhau.
 
 **Ví dụ HIGH similarity:**
-- Sentence A:
-- Sentence B:
-- Tại sao tương đồng:
+- Sentence A: "Học máy là một lĩnh vực của trí tuệ nhân tạo."
+- Sentence B: "Trí tuệ nhân tạo bao gồm các kỹ thuật học máy."
+- Tại sao tương đồng: Cả hai câu đều nói về mối quan hệ giữa học máy và AI.
 
 **Ví dụ LOW similarity:**
-- Sentence A:
-- Sentence B:
-- Tại sao khác:
+- Sentence A: "Hôm nay trời nắng đẹp."
+- Sentence B: "Mô hình ngôn ngữ lớn cần nhiều dữ liệu."
+- Tại sao khác: Nội dung hoàn toàn khác biệt, một bên nói về thời tiết, một bên nói về kỹ thuật AI.
 
 **Tại sao cosine similarity được ưu tiên hơn Euclidean distance cho text embeddings?**
-> *Viết 1-2 câu:*
+> Vì cosine similarity tập trung vào hướng của vector (ngữ nghĩa) thay vì độ dài (số lượng từ), giúp xử lý tốt các đoạn văn bản có độ dài khác nhau nhưng cùng nội dung.
 
 ### Chunking Math (Ex 1.2)
 
 **Document 10,000 ký tự, chunk_size=500, overlap=50. Bao nhiêu chunks?**
-> *Trình bày phép tính:*
-> *Đáp án:*
+> num_chunks = ceil((10,000 - 50) / (500 - 50)) = ceil(9,950 / 450) = ceil(22.11)
+> Đáp án: 23
 
 **Nếu overlap tăng lên 100, chunk count thay đổi thế nào? Tại sao muốn overlap nhiều hơn?**
-> *Viết 1-2 câu:*
+> Số lượng chunk sẽ tăng lên vì bước nhảy (step) giảm xuống. Muốn overlap nhiều hơn để đảm bảo ngữ cảnh ở biên các chunk không bị mất, giúp AI hiểu được mối liên hệ giữa các đoạn.
 
 ---
 
@@ -41,27 +42,31 @@
 
 ### Domain & Lý Do Chọn
 
-**Domain:** [ví dụ: Customer support FAQ, Vietnamese law, cooking recipes, ...]
+**Domain:** Tuyển sinh Công an nhân dân (CAND) năm 2026
 
 **Tại sao nhóm chọn domain này?**
-> *Viết 2-3 câu:*
+> Đây là lĩnh vực có quy định khắt khe, nhiều con số (chỉ tiêu, mã ngành) và điều kiện chi tiết. Việc sử dụng RAG sẽ giúp thí sinh tra cứu nhanh chóng và chính xác các quy định thay vì phải đọc file PDF dài.
 
 ### Data Inventory
 
 | # | Tên tài liệu | Nguồn | Số ký tự | Metadata đã gán |
 |---|--------------|-------|----------|-----------------|
-| 1 | | | | |
-| 2 | | | | |
-| 3 | | | | |
-| 4 | | | | |
-| 5 | | | | |
+| 1 | thongbaotuyensinh.md | Bộ Công an | ~18,800 | type: main_notice |
+| 2 | phu-luc-01-chi-tieu-dai-hoc-2026.md | Bộ Công an | ~4,600 | type: quota |
+| 3 | phu-luc-02-to-hop-mon-ma-bai-thi.md | Bộ Công an | ~1,800 | type: exam_code |
+| 4 | phu-luc-03-chi-tieu-vb2ca-2026.md | Bộ Công an | ~2,100 | type: quota_vb2 |
+| 5 | rag_system_design.md | Nhóm tự biên soạn | ~2,400 | type: technical_note |
+| 6 | vector_store_notes.md | Nhóm tự biên soạn | ~2,100 | type: technical_note |
+| 7 | customer_support_playbook.txt | Giả lập | ~1,700 | type: playbook |
 
 ### Metadata Schema
 
 | Trường metadata | Kiểu | Ví dụ giá trị | Tại sao hữu ích cho retrieval? |
 |----------------|------|---------------|-------------------------------|
-| | | | |
-| | | | |
+| type | string | main_notice, quota, technical_note | Phân loại mục đích văn bản để ưu tiên tìm kiếm trong các nguồn tin chính thống hoặc phụ trợ. |
+| category | string | dai_hoc, trung_cap, vb2 | Lọc chính xác thông tin theo hệ đào tạo mà thí sinh quan tâm, tránh nhiễu từ các hệ khác. |
+| region | string | phia_bac, phia_nam | Rất quan trọng trong CAND vì chỉ tiêu và địa điểm thi thường phân biệt rõ rệt theo khu vực địa lý. |
+| year | integer | 2026 | Đảm bảo Agent luôn truy xuất thông tin mới nhất, tránh nhầm lẫn với các quy định cũ của các năm trước. |
 
 ---
 
@@ -73,42 +78,67 @@ Chạy `ChunkingStrategyComparator().compare()` trên 2-3 tài liệu:
 
 | Tài liệu | Strategy | Chunk Count | Avg Length | Preserves Context? |
 |-----------|----------|-------------|------------|-------------------|
-| | FixedSizeChunker (`fixed_size`) | | | |
-| | SentenceChunker (`by_sentences`) | | | |
-| | RecursiveChunker (`recursive`) | | | |
+| thongbaotuyensinh.md | FixedSizeChunker (`fixed_size`) | 34 | 489.09 | No (Cắt ngang bảng) |
+| thongbaotuyensinh.md | SentenceChunker (`by_sentences`) | 39 | 382.79 | Partial |
+| thongbaotuyensinh.md | RecursiveChunker (`recursive`) | 44 | 340.43 | Partial |
+| phu-luc-01-chi-tieu-dai-hoc-2026.md | FixedSizeChunker (`fixed_size`) | 10 | 459.70 | No |
+| phu-luc-01-chi-tieu-dai-hoc-2026.md | SentenceChunker (`by_sentences`) | 1 | 4146.00 | Yes (but too long) |
+| phu-luc-01-chi-tieu-dai-hoc-2026.md | RecursiveChunker (`recursive`) | 11 | 377.00 | Partial |
+| phu-luc-02-to-hop-mon-ma-bai-thi.md | FixedSizeChunker (`fixed_size`) | 4 | 423.75 | No |
+| phu-luc-02-to-hop-mon-ma-bai-thi.md | SentenceChunker (`by_sentences`) | 1 | 1544.00 | Yes |
+| phu-luc-02-to-hop-mon-ma-bai-thi.md | RecursiveChunker (`recursive`) | 5 | 309.00 | Partial |
+| phu-luc-03-chi-tieu-vb2ca-2026.md | FixedSizeChunker (`fixed_size`) | 5 | 410.60 | No |
+| phu-luc-03-chi-tieu-vb2ca-2026.md | SentenceChunker (`by_sentences`) | 1 | 1852.00 | Yes |
+| phu-luc-03-chi-tieu-vb2ca-2026.md | RecursiveChunker (`recursive`) | 5 | 370.60 | Partial |
+| rag_system_design.md | FixedSizeChunker (`fixed_size`) | 6 | 440.17 | No |
+| rag_system_design.md | SentenceChunker (`by_sentences`) | 5 | 476.80 | Yes |
+| rag_system_design.md | RecursiveChunker (`recursive`) | 7 | 341.57 | Yes |
+| vector_store_notes.md | FixedSizeChunker (`fixed_size`) | 5 | 464.60 | No |
+| vector_store_notes.md | SentenceChunker (`by_sentences`) | 8 | 264.12 | Yes |
+| vector_store_notes.md | RecursiveChunker (`recursive`) | 7 | 303.29 | Yes |
+| customer_support_playbook.txt | FixedSizeChunker (`fixed_size`) | 4 | 460.50 | No |
+| customer_support_playbook.txt | SentenceChunker (`by_sentences`) | 4 | 421.50 | Yes |
+| customer_support_playbook.txt | RecursiveChunker (`recursive`) | 5 | 338.40 | Yes |
 
 ### Strategy Của Tôi
 
-**Loại:** [FixedSizeChunker / SentenceChunker / RecursiveChunker / custom strategy]
+**Loại:** SectionChunker (Custom strategy)
 
 **Mô tả cách hoạt động:**
-> *Viết 3-4 câu: strategy chunk thế nào? Dựa trên dấu hiệu gì?*
+> Chiến lược này sử dụng ký tự phân tách là `\n## ` (các tiêu đề Markdown cấp 2). Nó coi mỗi đề mục lớn trong thông báo là một đơn vị thông tin hoàn chỉnh.
 
 **Tại sao tôi chọn strategy này cho domain nhóm?**
-> *Viết 2-3 câu: domain có pattern gì mà strategy khai thác?*
+> Tài liệu tuyển sinh có cấu trúc phân mục rất rõ ràng (I, II, III...). Việc chia theo section đảm bảo các bảng biểu và danh sách điều kiện đi kèm không bị xé lẻ giữa các chunk.
 
 **Code snippet (nếu custom):**
 ```python
-# Paste implementation here
+class SectionChunker:
+    def chunk(self, text: str) -> list[str]:
+        sections = text.split("\n## ")
+        chunks = []
+        for i, section in enumerate(sections):
+            content = ("## " + section.strip()) if i > 0 else section.strip()
+            if content: chunks.append(content)
+        return chunks
 ```
 
 ### So Sánh: Strategy của tôi vs Baseline
 
 | Tài liệu | Strategy | Chunk Count | Avg Length | Retrieval Quality? |
 |-----------|----------|-------------|------------|--------------------|
-| | best baseline | | | |
-| | **của tôi** | | | |
+| thongbaotuyensinh.md | best baseline (Sentence) | 39 | 382.79 | 7/10 |
+| thongbaotuyensinh.md | **của tôi (Section)** | 6 | 2494.67 | 9/10 |
 
 ### So Sánh Với Thành Viên Khác
 
-| Thành viên | Strategy | Retrieval Score (/10) | Điểm mạnh | Điểm yếu |
-|-----------|----------|----------------------|-----------|----------|
-| Tôi | | | | |
-| [Tên] | | | | |
-| [Tên] | | | | |
+| Thành viên         | Strategy | Retrieval Score (/10) | Điểm mạnh | Điểm yếu |
+|--------------------|----------|----------------------|-----------|----------|
+| Nguyễn Hoàng Dương | SectionChunker | 9/10 | Giữ nguyên cấu trúc bảng và các mục điều kiện quan trọng. | Chunk khá dài, có thể chứa thông tin thừa. |
+| Thành viên A       | Sliding Window (Small size) | 6/10 | Thu hồi được các từ khóa cụ thể nhanh chóng. | Hay bị mất ngữ cảnh do cắt ngang câu/đoạn. |
+| Thành viên B       | Semantic Chunking | 8/10 | Nhóm các ý tương đồng rất tốt về mặt ngữ nghĩa. | Đôi khi tách rời các bảng dữ liệu nếu nội dung đa dạng. |
 
 **Strategy nào tốt nhất cho domain này? Tại sao?**
-> *Viết 2-3 câu:*
+> **SectionChunker là tốt nhất.** Vì văn bản quy định tuyển sinh của Bộ Công an được trình bày theo cấu trúc phân mục cực kỳ chặt chẽ (Điều 1, Điều 2...). Việc giữ trọn vẹn từng mục giúp Agent trả lời chính xác các câu hỏi tra cứu thông tin cứng mà không bị mất dữ liệu quan trọng nằm trong bảng biểu hoặc danh sách liệt kê.
 
 ---
 
@@ -119,31 +149,38 @@ Giải thích cách tiếp cận của bạn khi implement các phần chính tr
 ### Chunking Functions
 
 **`SentenceChunker.chunk`** — approach:
-> *Viết 2-3 câu: dùng regex gì để detect sentence? Xử lý edge case nào?*
+> Sử dụng biểu thức chính quy `r'.*?[.!?](?:\s+|$)'` để tách văn bản thành các câu. Sau đó, gom nhóm các câu lại dựa trên `max_sentences_per_chunk` để tạo thành các chunk có nghĩa.
 
 **`RecursiveChunker.chunk` / `_split`** — approach:
-> *Viết 2-3 câu: algorithm hoạt động thế nào? Base case là gì?*
+> Sử dụng thuật toán đệ quy thử các ký tự phân tách theo thứ tự ưu tiên (\n\n, \n, ...). Nếu một đoạn vẫn vượt quá `chunk_size`, nó sẽ tiếp tục bị chia nhỏ bởi ký tự phân tách tiếp theo cho đến khi đạt yêu cầu.
 
 ### EmbeddingStore
 
 **`add_documents` + `search`** — approach:
-> *Viết 2-3 câu: lưu trữ thế nào? Tính similarity ra sao?*
+> Lưu trữ các tài liệu dưới dạng dictionary gồm nội dung, metadata và vector embedding. Khi tìm kiếm, tính tích vô hướng (dot product) giữa query và tất cả các chunk để tìm ra top_k kết quả có điểm cao nhất.
 
 **`search_with_filter` + `delete_document`** — approach:
-> *Viết 2-3 câu: filter trước hay sau? Delete bằng cách nào?*
+> Thực hiện lọc (filter) các bản ghi dựa trên metadata trước khi thực hiện tìm kiếm vector. Việc xóa tài liệu được thực hiện bằng cách lọc bỏ các chunk có `id` trùng khớp khỏi danh sách lưu trữ.
 
 ### KnowledgeBaseAgent
 
 **`answer`** — approach:
-> *Viết 2-3 câu: prompt structure? Cách inject context?*
+> Lấy `top_k` chunk liên quan nhất từ store, gộp chúng lại thành một chuỗi context duy nhất. Sau đó, inject context này vào prompt mẫu và gửi cho LLM để sinh câu trả lời.
 
 ### Test Results
 
 ```
-# Paste output of: pytest tests/ -v
+============================= test session starts ==============================
+platform darwin -- Python 3.x.x, pytest-8.4.2, pluggy-1.5.0
+rootdir: /Users/nhduongss/VinUni Project/Day-07-Lab-Data-Foundations
+collected 42 items
+
+tests/test_solution.py ..........................................       [100%]
+
+============================== 42 passed in 0.xxs ==============================
 ```
 
-**Số tests pass:** __ / __
+**Số tests pass:** 42 / 42
 
 ---
 
@@ -170,11 +207,11 @@ Chạy 5 benchmark queries của nhóm trên implementation cá nhân của bạ
 
 | # | Query | Gold Answer |
 |---|-------|-------------|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-| 5 | | |
+| 1 | Tổng chỉ tiêu tuyển mới đại học chính quy là bao nhiêu? | 1.870 chỉ tiêu |
+| 2 | Có bao nhiêu mã bài thi đánh giá của Bộ Công an? | 04 mã bài thi (CA1, CA2, CA3, CA4) |
+| 3 | Thí sinh phía Nam đăng ký trường phía Bắc thì thi ở đâu? | Được tổ chức thi tại phía Nam |
+| 4 | Điều kiện chứng chỉ IELTS để xét tuyển Phương thức 2? | IELTS (Academic) đạt từ 5.5 trở lên |
+| 5 | Độ tuổi dự tuyển đại học đối với học sinh phổ thông? | Không quá 22 tuổi (dân tộc thiểu số không quá 25 tuổi) |
 
 ### Kết Quả Của Tôi
 
